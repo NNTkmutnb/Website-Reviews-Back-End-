@@ -124,16 +124,22 @@ app.delete('/movies/:id', (req, res) => {
 
 // Get a movie_detail & reviews
 app.get('/movie_detail&review/:id', (req, res) => {
-    db.get(`SELECT movies.movie_name, 
+    db.get(`SELECT 
+            movies.movie_name,
+            category.name AS category_name,
+            studio.name AS studio_name,
             movies.movie_detail, 
             movies.director,
             movies.flimmaking_funds, 
             movies.movie_income, 
             review.reviewer, 
             review.review_detail, 
-            review.overall_score 
+            review.overall_score
             FROM movies 
-            JOIN review ON movies.id = review.movieID WHERE movies.id = ?`, req.params.id, (err, row) => {
+            JOIN review ON movies.id = review.movieID
+            JOIN category ON movies.categoryID = category.id
+            JOIN studio ON movies.studioID = studio.id
+            WHERE movies.id = ?`, req.params.id, (err, row) => {
         if (err) {
             res.status(500).send(err);
         } else {

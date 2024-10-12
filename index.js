@@ -50,7 +50,7 @@ db.run(`CREATE TABLE IF NOT EXISTS studio (
 
 // Get a movies, studio_name
 app.get('/movies_reviews', (req, res) => {
-    db.all('SELECT movies.id, movies.movie_name, studio.name FROM studio JOIN movies ON studio.id = movies.studioID', (err, rows) => {
+    db.all('SELECT movies.movie_name, studio.name FROM studio JOIN movies ON studio.id = movies.studioID', (err, rows) => {
         if (err) {
             res.status(500).send(err);
         } else {
@@ -61,11 +61,22 @@ app.get('/movies_reviews', (req, res) => {
 
 // CRUD For Movies
 app.get('/movies', (req, res) => {
-    db.all('SELECT * FROM movies', (err, rows) => {
+    db.all(`SELECT movies.id,
+            movies.movie_name,
+            category.name AS category_name,
+            studio.name AS studio_name,
+            movies.movie_detail, 
+            movies.director,
+            movies.flimmaking_funds, 
+            movies.movie_income
+            FROM movies 
+            JOIN category ON movies.categoryID = category.id
+            JOIN studio ON movies.studioID = studio.id`, (err, row) => {
+        // db.all(`SELECT * FROM movies`, (err, row) => {
         if (err) {
             res.status(500).send(err);
         } else {
-            res.json(rows);
+            res.json(row);
         }
     });
 });
@@ -88,15 +99,40 @@ app.get('/movies/:id', (req, res) => {
 // route to creata a new movies
 app.post('/movies', (req, res) => {
     const movie = req.body;
-    db.run('INSERT INTO movies (movie_name, categoryID, studioID, movie_detail, director, flimmaking_funds, movie_income) VALUES (?, ?, ?, ?, ?, ?, ?)', 
-            movie.movie_name, movie.categoryID, movie.studioID, movie.movie_detail, movie.director, movie.flimmaking_funds, movie.movie_income, req.params.id, function(err) {
+
+    // Query ชื่อ category จากตาราง category
+    db.get(`SELECT name FROM category WHERE id = ?`, [movie.categoryID], (err, category) => {
         if (err) {
-            res.status(500).send(err);
-        } else {
-            res.send(movie);
+            return res.status(500).send('Error fetching category');
         }
+
+        // Query ชื่อ studio จากตาราง studio
+        db.get(`SELECT name FROM studio WHERE id = ?`, [movie.studioID], (err, studio) => {
+            if (err) {
+                return res.status(500).send('Error fetching studio');
+            }
+
+            // เมื่อได้ชื่อ category และ studio แล้วทำการ insert ข้อมูลลงในตาราง movies
+            db.run(`INSERT INTO movies (movie_name, categoryID, studioID, movie_detail, director, flimmaking_funds, movie_income) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?)`, 
+                movie.movie_name, 
+                category.name,  // ใส่ชื่อ category แทน categoryID
+                studio.name,    // ใส่ชื่อ studio แทน studioID
+                movie.movie_detail, 
+                movie.director, 
+                movie.flimmaking_funds, 
+                movie.movie_income, 
+                function(err) {
+                    if (err) {
+                        res.status(500).send('Error inserting movie');
+                    } else {
+                        res.send(movie);
+                    }
+                });
+        });
     });
 });
+
 
 // route to update a movies
 app.put('/movies/:id', (req, res) => {
@@ -124,16 +160,22 @@ app.delete('/movies/:id', (req, res) => {
 
 // Get a movie_detail & reviews
 app.get('/movie_detail&review/:id', (req, res) => {
-    db.get(`SELECT movies.movie_name, 
+    db.get(`SELECT 
+            movies.movie_name,
+            category.name AS category_name,
+            studio.name AS studio_name,
             movies.movie_detail, 
             movies.director,
             movies.flimmaking_funds, 
             movies.movie_income, 
             review.reviewer, 
             review.review_detail, 
-            review.overall_score 
+            review.overall_score
             FROM movies 
-            JOIN review ON movies.id = review.movieID WHERE movies.id = ?`, req.params.id, (err, row) => {
+            JOIN review ON movies.id = review.movieID
+            JOIN category ON movies.categoryID = category.id
+            JOIN studio ON movies.studioID = studio.id
+            WHERE movies.id = ?`, req.params.id, (err, row) => {
         if (err) {
             res.status(500).send(err);
         } else {
