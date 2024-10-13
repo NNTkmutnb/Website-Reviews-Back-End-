@@ -12,52 +12,41 @@ app.use(express.json());
 
 // สร้างตาราง Movies Reviews
 db.run(`CREATE TABLE IF NOT EXISTS movies (
-    id INTEGER PRIMARY KEY,
-    movie_name VARCHAR(255),
-    categoryID INTEGER,
-    studioID INTEGER,
-    movie_detail TEXT,
-    director TEXT,
-    flimmaking_funds TEXT,
-    movie_income TEXT,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    movie_name VARCHAR(255) NOT NULL,
+    categoryID INTEGER NOT NULL,
+    studioID INTEGER NOT NULL,
+    movie_detail TEXT NOT NULL,
+    director TEXT NOT NULL,
+    flimmaking_funds TEXT NOT NULL,
+    movie_income TEXT NOT NULL,
     FOREIGN KEY (categoryID) REFERENCES category(id),
     FOREIGN KEY (studioID) REFERENCES studio(id)
 )`);
 
 // สร้างตาราง Review
 db.run(`CREATE TABLE IF NOT EXISTS review (
-    id INTEGER PRIMARY KEY,
-    movieID INTEGER,
-    review_detail TEXT,
-    overall_score INTEGER,
-    reviewer VARCHAR(255),
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    movieID INTEGER NOT NULL,
+    review_detail TEXT NOT NULL,
+    overall_score INTEGER NOT NULL,
+    reviewer VARCHAR(255) NOT NULL,
     FOREIGN KEY (movieID) REFERENCES movies(id)
 )`);
 
 // สร้างตาราง Category
 db.run(`CREATE TABLE IF NOT EXISTS category (
-    id INTEGER PRIMARY KEY,
-    name VARCHAR(255),
-    detail TEXT
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name VARCHAR(255) NOT NULL,
+    detail TEXT NOT NULL
 )`);
 
 // สร้างตาราง Studio
 db.run(`CREATE TABLE IF NOT EXISTS studio (
-    id INTEGER PRIMARY KEY,
-    name VARCHAR(255),
-    detail TEXT
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name VARCHAR(255) NOT NULL,
+    detail TEXT NOT NULL
 )`);
-
-// Get a movies, studio_name
-app.get('/movies_reviews', (req, res) => {
-    db.all('SELECT movies.movie_name, studio.name FROM studio JOIN movies ON studio.id = movies.studioID', (err, rows) => {
-        if (err) {
-            res.status(500).send(err);
-        } else {
-            res.json(rows);
-        }
-    });
-});
 
 // CRUD For Movies
 app.get('/movies', (req, res) => {
@@ -83,7 +72,18 @@ app.get('/movies', (req, res) => {
 
 // route to get a movies by id
 app.get('/movies/:id', (req, res) => {
-    db.get('SELECT * FROM movies WHERE id = ?', req.params.id, (err, row) => {
+    db.get(`SELECT movies.id,
+            movies.movie_name,
+            category.name AS category_name,
+            studio.name AS studio_name,
+            movies.movie_detail, 
+            movies.director,
+            movies.flimmaking_funds, 
+            movies.movie_income
+            FROM movies 
+            JOIN category ON movies.categoryID = category.id
+            JOIN studio ON movies.studioID = studio.id
+            WHERE movies.id = ?`, req.params.id, (err, row) => {
         if (err) {
             res.status(500).send(err);
         } else {
@@ -99,37 +99,13 @@ app.get('/movies/:id', (req, res) => {
 // route to creata a new movies
 app.post('/movies', (req, res) => {
     const movie = req.body;
-
-    // Query ชื่อ category จากตาราง category
-    db.get(`SELECT name FROM category WHERE id = ?`, [movie.categoryID], (err, category) => {
+    db.run(`INSERT INTO movies (movie_name, categoryID, studioID, movie_detail, director, flimmaking_funds, movie_income) VALUES (?, ?, ?, ?, ?, ?, ?)`, 
+            movie.movie_name, movie.categoryID, movie.studioID, movie.movie_detail, movie.director, movie.flimmaking_funds, movie.movie_income, req.params.id, function(err) {
         if (err) {
-            return res.status(500).send('Error fetching category');
+            res.status(500).send(err);
+        } else {
+            res.send(movie);
         }
-
-        // Query ชื่อ studio จากตาราง studio
-        db.get(`SELECT name FROM studio WHERE id = ?`, [movie.studioID], (err, studio) => {
-            if (err) {
-                return res.status(500).send('Error fetching studio');
-            }
-
-            // เมื่อได้ชื่อ category และ studio แล้วทำการ insert ข้อมูลลงในตาราง movies
-            db.run(`INSERT INTO movies (movie_name, categoryID, studioID, movie_detail, director, flimmaking_funds, movie_income) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?)`, 
-                movie.movie_name, 
-                category.name,  // ใส่ชื่อ category แทน categoryID
-                studio.name,    // ใส่ชื่อ studio แทน studioID
-                movie.movie_detail, 
-                movie.director, 
-                movie.flimmaking_funds, 
-                movie.movie_income, 
-                function(err) {
-                    if (err) {
-                        res.status(500).send('Error inserting movie');
-                    } else {
-                        res.send(movie);
-                    }
-                });
-        });
     });
 });
 
@@ -154,36 +130,6 @@ app.delete('/movies/:id', (req, res) => {
             res.status(500).send(err);
         } else {
             res.send({});
-        }
-    });
-});
-
-// Get a movie_detail & reviews
-app.get('/movie_detail&review/:id', (req, res) => {
-    db.get(`SELECT 
-            movies.movie_name,
-            category.name AS category_name,
-            studio.name AS studio_name,
-            movies.movie_detail, 
-            movies.director,
-            movies.flimmaking_funds, 
-            movies.movie_income, 
-            review.reviewer, 
-            review.review_detail, 
-            review.overall_score
-            FROM movies 
-            JOIN review ON movies.id = review.movieID
-            JOIN category ON movies.categoryID = category.id
-            JOIN studio ON movies.studioID = studio.id
-            WHERE movies.id = ?`, req.params.id, (err, row) => {
-        if (err) {
-            res.status(500).send(err);
-        } else {
-            if (!row) {
-                res.status(404).send('Movies not found');
-            } else {
-                res.json(row);
-            }
         }
     });
 });
@@ -273,6 +219,18 @@ app.get('/category/:id', (req, res) => {
             } else {
                 res.json(row);
             }
+        }
+    });
+});
+
+// route to get id and name form category for selection
+app.get('/category_select', (req, res) => {
+    db.all("SELECT id, name FROM category", (err, row) => {
+        if (err) {
+            console.error('Error retrieving categories:', err.message);
+            res.status(500).send('Error retrieving categories');
+        } else {
+            res.json(row); // ส่งข้อมูล category กลับไปยัง Front-End
         }
     });
 });
