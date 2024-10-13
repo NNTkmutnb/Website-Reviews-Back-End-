@@ -136,7 +136,7 @@ app.delete('/movies/:id', (req, res) => {
 
 // CRUD For Review
 app.get('/review', (req, res) => {
-    db.all('SELECT * FROM review', (err, rows) => {
+    db.all(`SELECT * FROM review`, (err, rows) => {
         if (err) {
             res.status(500).send(err);
         } else {
@@ -146,8 +146,17 @@ app.get('/review', (req, res) => {
 });
 
 // route to get a review by id
-app.get('/review/:id', (req, res) => {
-    db.get('SELECT * FROM review WHERE id = ?', req.params.id, (err, row) => {
+app.get('/review/:movieID', (req, res) => {
+    db.get(`SELECT 
+            review.id,
+            review.movieID,
+            review.review_detail,
+            review.overall_score,
+            review.reviewer,
+            movies.id
+            FROM review
+            JOIN movies ON review.movieID = movies.id
+            WHERE movieID = ? `, req.params.id, (err, row) => {
         if (err) {
             res.status(500).send(err);
         } else {
