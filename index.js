@@ -147,25 +147,14 @@ app.get('/review', (req, res) => {
 
 // route to get a review by id
 app.get('/review/:movieID', (req, res) => {
-    db.get(`SELECT 
-            review.id,
-            review.movieID,
-            review.review_detail,
-            review.overall_score,
-            review.reviewer,
-            movies.id
-            FROM review
-            JOIN movies ON review.movieID = movies.id
-            WHERE movieID = ? `, req.params.id, (err, row) => {
+    const movieID = req.params.movieID; // รับ movieID จาก URL
+    const sql = 'SELECT * FROM review WHERE movieID = ?';
+
+    db.all(sql, [movieID], (err, rows) => {
         if (err) {
-            res.status(500).send(err);
-        } else {
-            if (!row) {
-                res.status(404).send('review not found');
-            } else {
-                res.json(row);
-            }
+            return res.status(500).json({ error: err.message });
         }
+        res.json(rows); // ส่งข้อมูลที่ดึงมาในรูปแบบ JSON
     });
 });
 
