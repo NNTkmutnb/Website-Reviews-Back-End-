@@ -158,6 +158,20 @@ app.get('/review/:movieID', (req, res) => {
     });
 });
 
+app.get('/review_id/:id', (req, res) => {
+    db.get('SELECT * FROM review WHERE id = ?', req.params.id, (err, row) => {
+        if (err) {
+            res.status(500).send(err);
+        } else {
+            if (!row) {
+                res.status(404).send('review not found');
+            } else {
+                res.json(row);
+            }
+        }
+    });
+});
+
 // route to create a new review
 app.post('/review', (req, res) => {
     const review = req.body;
@@ -195,6 +209,20 @@ app.delete('/review/:id', (req, res) => {
     });
 });
 
+// route to delete reviews by movieID
+app.delete('/review_movies/:movieID', (req, res) => {
+    const movieID = req.params.movieID;
+    const sql = 'DELETE FROM review WHERE movieID = ?';
+
+    db.run(sql, [movieID], function(err) {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        res.status(200).json({ message: 'Reviews deleted' });
+    });
+});
+
+
 // CRUD For Category
 app.get('/category', (req, res) => {
     db.all('SELECT * FROM category', (err, rows) => {
@@ -205,6 +233,7 @@ app.get('/category', (req, res) => {
         }
     });
 });
+
 
 // route to get a category by id
 app.get('/category/:id', (req, res) => {
